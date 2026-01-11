@@ -1,5 +1,6 @@
 package com.ems.service;
 
+import com.ems.config.TimeZoneConfig;
 import com.ems.dto.ActivityLogResponseDTO;
 import com.ems.entity.*;
 import com.ems.repository.ActivityLogRepository;
@@ -18,6 +19,9 @@ public class LogService {
 
     @Autowired
     private ActivityLogRepository activityLogRepository;
+
+    @Autowired
+    private TimeZoneConfig timeZoneConfig;
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm:ss");
@@ -45,6 +49,7 @@ public class LogService {
                 .latitude(latitude)
                 .longitude(longitude)
                 .details("Status changed from " + oldStatus + " to " + newStatus)
+                .timestamp(LocalDateTime.now(timeZoneConfig.getZoneId()))
                 .build();
         activityLogRepository.save(log);
     }
@@ -60,6 +65,7 @@ public class LogService {
                 .latitude(latitude)
                 .longitude(longitude)
                 .details("Employee started their day")
+                .timestamp(LocalDateTime.now(timeZoneConfig.getZoneId()))
                 .build();
         activityLogRepository.save(log);
     }
@@ -75,6 +81,7 @@ public class LogService {
                 .latitude(latitude)
                 .longitude(longitude)
                 .details("Employee ended their day")
+                .timestamp(LocalDateTime.now(timeZoneConfig.getZoneId()))
                 .build();
         activityLogRepository.save(log);
     }
@@ -91,6 +98,7 @@ public class LogService {
                 .mainTicket(miniJobCard.getMainTicket())
                 .generator(miniJobCard.getMainTicket().getGenerator())
                 .details("Job approved by " + approver.getFullName())
+                .timestamp(LocalDateTime.now(timeZoneConfig.getZoneId()))
                 .build();
         activityLogRepository.save(log);
     }
@@ -107,6 +115,7 @@ public class LogService {
                 .mainTicket(miniJobCard.getMainTicket())
                 .generator(miniJobCard.getMainTicket().getGenerator())
                 .details("Job rejected by " + rejector.getFullName())
+                .timestamp(LocalDateTime.now(timeZoneConfig.getZoneId()))
                 .build();
         activityLogRepository.save(log);
     }
@@ -123,6 +132,7 @@ public class LogService {
                 .mainTicket(miniJobCard.getMainTicket())
                 .generator(miniJobCard.getMainTicket().getGenerator())
                 .details("Job assigned to " + employee.getFullName() + " by " + assignedBy.getFullName())
+                .timestamp(LocalDateTime.now(timeZoneConfig.getZoneId()))
                 .build();
         activityLogRepository.save(log);
     }
