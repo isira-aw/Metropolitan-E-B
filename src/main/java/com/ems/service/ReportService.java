@@ -837,4 +837,366 @@ public class ReportService {
 
         return reports;
     }
+
+    /**
+     * Export Daily Time Tracking Report as PDF
+     *
+     * @param employeeId Optional employee ID (null for all employees)
+     * @param startDate Report start date
+     * @param endDate Report end date
+     * @return PDF file as byte array
+     */
+    public byte[] exportDailyTimeTrackingReportPDF(
+            Long employeeId, LocalDate startDate, LocalDate endDate) {
+
+        List<DailyTimeTrackingReportDTO> reportData =
+            getDailyTimeTrackingReport(employeeId, startDate, endDate);
+
+        try (java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream()) {
+            com.itextpdf.kernel.pdf.PdfWriter writer = new com.itextpdf.kernel.pdf.PdfWriter(baos);
+            com.itextpdf.kernel.pdf.PdfDocument pdf = new com.itextpdf.kernel.pdf.PdfDocument(writer);
+            com.itextpdf.layout.Document document = new com.itextpdf.layout.Document(pdf);
+
+            // Set page size to A4 landscape for wider tables
+            pdf.setDefaultPageSize(com.itextpdf.kernel.geom.PageSize.A4.rotate());
+
+            // Add title
+            com.itextpdf.layout.element.Paragraph title = new com.itextpdf.layout.element.Paragraph("Daily Time Tracking Report")
+                .setFontSize(18)
+                .setBold()
+                .setTextAlignment(com.itextpdf.layout.properties.TextAlignment.CENTER)
+                .setMarginBottom(10);
+            document.add(title);
+
+            // Add date range
+            com.itextpdf.layout.element.Paragraph dateRange = new com.itextpdf.layout.element.Paragraph(
+                String.format("Period: %s to %s", startDate.toString(), endDate.toString()))
+                .setFontSize(12)
+                .setTextAlignment(com.itextpdf.layout.properties.TextAlignment.CENTER)
+                .setMarginBottom(20);
+            document.add(dateRange);
+
+            if (reportData.isEmpty()) {
+                document.add(new com.itextpdf.layout.element.Paragraph("No data available for the selected period.")
+                    .setTextAlignment(com.itextpdf.layout.properties.TextAlignment.CENTER));
+            } else {
+                // Create table with 9 columns
+                com.itextpdf.layout.element.Table table = new com.itextpdf.layout.element.Table(
+                    new float[]{2, 2, 2, 2, 3, 2, 2, 2, 2});
+                table.setWidth(com.itextpdf.layout.properties.UnitValue.createPercentValue(100));
+
+                // Add headers
+                String[] headers = {"Employee", "Date", "Start Time", "End Time",
+                    "Location", "Working (min)", "Idle (min)", "Travel (min)", "Total (min)"};
+
+                for (String header : headers) {
+                    com.itextpdf.layout.element.Cell headerCell = new com.itextpdf.layout.element.Cell()
+                        .add(new com.itextpdf.layout.element.Paragraph(header))
+                        .setBackgroundColor(com.itextpdf.kernel.colors.ColorConstants.LIGHT_GRAY)
+                        .setBold()
+                        .setTextAlignment(com.itextpdf.layout.properties.TextAlignment.CENTER)
+                        .setPadding(5);
+                    table.addHeaderCell(headerCell);
+                }
+
+                // Add data rows
+                java.time.format.DateTimeFormatter timeFormatter =
+                    java.time.format.DateTimeFormatter.ofPattern("HH:mm");
+
+                for (DailyTimeTrackingReportDTO record : reportData) {
+                    table.addCell(new com.itextpdf.layout.element.Cell()
+                        .add(new com.itextpdf.layout.element.Paragraph(record.getEmployeeName()))
+                        .setPadding(5));
+                    table.addCell(new com.itextpdf.layout.element.Cell()
+                        .add(new com.itextpdf.layout.element.Paragraph(record.getDate().toString()))
+                        .setPadding(5));
+                    table.addCell(new com.itextpdf.layout.element.Cell()
+                        .add(new com.itextpdf.layout.element.Paragraph(
+                            record.getStartTime() != null ? record.getStartTime().format(timeFormatter) : "N/A"))
+                        .setPadding(5));
+                    table.addCell(new com.itextpdf.layout.element.Cell()
+                        .add(new com.itextpdf.layout.element.Paragraph(
+                            record.getEndTime() != null ? record.getEndTime().format(timeFormatter) : "N/A"))
+                        .setPadding(5));
+                    table.addCell(new com.itextpdf.layout.element.Cell()
+                        .add(new com.itextpdf.layout.element.Paragraph(record.getLocation()))
+                        .setPadding(5));
+                    table.addCell(new com.itextpdf.layout.element.Cell()
+                        .add(new com.itextpdf.layout.element.Paragraph(
+                            record.getDailyWorkingMinutes() != null ? record.getDailyWorkingMinutes().toString() : "0"))
+                        .setTextAlignment(com.itextpdf.layout.properties.TextAlignment.RIGHT)
+                        .setPadding(5));
+                    table.addCell(new com.itextpdf.layout.element.Cell()
+                        .add(new com.itextpdf.layout.element.Paragraph(
+                            record.getIdleMinutes() != null ? record.getIdleMinutes().toString() : "0"))
+                        .setTextAlignment(com.itextpdf.layout.properties.TextAlignment.RIGHT)
+                        .setPadding(5));
+                    table.addCell(new com.itextpdf.layout.element.Cell()
+                        .add(new com.itextpdf.layout.element.Paragraph(
+                            record.getTravelMinutes() != null ? record.getTravelMinutes().toString() : "0"))
+                        .setTextAlignment(com.itextpdf.layout.properties.TextAlignment.RIGHT)
+                        .setPadding(5));
+                    table.addCell(new com.itextpdf.layout.element.Cell()
+                        .add(new com.itextpdf.layout.element.Paragraph(
+                            record.getTotalMinutes() != null ? record.getTotalMinutes().toString() : "0"))
+                        .setTextAlignment(com.itextpdf.layout.properties.TextAlignment.RIGHT)
+                        .setPadding(5));
+                }
+
+                document.add(table);
+            }
+
+            // Add footer with generation timestamp
+            com.itextpdf.layout.element.Paragraph footer = new com.itextpdf.layout.element.Paragraph(
+                "Generated on: " + java.time.LocalDateTime.now().format(
+                    java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")))
+                .setFontSize(8)
+                .setTextAlignment(com.itextpdf.layout.properties.TextAlignment.RIGHT)
+                .setMarginTop(20);
+            document.add(footer);
+
+            document.close();
+            return baos.toByteArray();
+
+        } catch (Exception e) {
+            throw new RuntimeException("Error generating PDF report", e);
+        }
+    }
+
+    /**
+     * Export Employee Daily Work Time (Performance & OT) Report as PDF
+     *
+     * @param employeeId Employee ID (required)
+     * @param startDate Report start date
+     * @param endDate Report end date
+     * @return PDF file as byte array
+     */
+    public byte[] exportEmployeeDailyWorkTimeReportPDF(
+            Long employeeId, LocalDate startDate, LocalDate endDate) {
+
+        List<EmployeeDailyWorkTimeReportDTO> reportData =
+            getEmployeeDailyWorkTimeReport(employeeId, startDate, endDate);
+
+        try (java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream()) {
+            com.itextpdf.kernel.pdf.PdfWriter writer = new com.itextpdf.kernel.pdf.PdfWriter(baos);
+            com.itextpdf.kernel.pdf.PdfDocument pdf = new com.itextpdf.kernel.pdf.PdfDocument(writer);
+            com.itextpdf.layout.Document document = new com.itextpdf.layout.Document(pdf);
+
+            // Set page size to A4 landscape for wider tables
+            pdf.setDefaultPageSize(com.itextpdf.kernel.geom.PageSize.A4.rotate());
+
+            // Get employee name from first record
+            String employeeName = reportData.isEmpty() ? "Unknown" : reportData.get(0).getEmployeeName();
+
+            // Add title
+            com.itextpdf.layout.element.Paragraph title = new com.itextpdf.layout.element.Paragraph(
+                "Performance & Overtime Report")
+                .setFontSize(18)
+                .setBold()
+                .setTextAlignment(com.itextpdf.layout.properties.TextAlignment.CENTER)
+                .setMarginBottom(5);
+            document.add(title);
+
+            // Add employee name
+            com.itextpdf.layout.element.Paragraph empName = new com.itextpdf.layout.element.Paragraph(
+                "Employee: " + employeeName)
+                .setFontSize(14)
+                .setTextAlignment(com.itextpdf.layout.properties.TextAlignment.CENTER)
+                .setMarginBottom(10);
+            document.add(empName);
+
+            // Add date range
+            com.itextpdf.layout.element.Paragraph dateRange = new com.itextpdf.layout.element.Paragraph(
+                String.format("Period: %s to %s", startDate.toString(), endDate.toString()))
+                .setFontSize(12)
+                .setTextAlignment(com.itextpdf.layout.properties.TextAlignment.CENTER)
+                .setMarginBottom(20);
+            document.add(dateRange);
+
+            if (reportData.isEmpty()) {
+                document.add(new com.itextpdf.layout.element.Paragraph("No data available for the selected period.")
+                    .setTextAlignment(com.itextpdf.layout.properties.TextAlignment.CENTER));
+            } else {
+                // Create table with 10 columns
+                com.itextpdf.layout.element.Table table = new com.itextpdf.layout.element.Table(
+                    new float[]{2, 2, 2, 2, 2, 2, 2, 2, 2, 2});
+                table.setWidth(com.itextpdf.layout.properties.UnitValue.createPercentValue(100));
+
+                // Add headers
+                String[] headers = {"Date", "Start Time", "End Time", "Working (min)",
+                    "Morning OT (min)", "Evening OT (min)", "Total OT (min)",
+                    "Weight Earned", "Jobs Completed", "Total Min"};
+
+                for (String header : headers) {
+                    com.itextpdf.layout.element.Cell headerCell = new com.itextpdf.layout.element.Cell()
+                        .add(new com.itextpdf.layout.element.Paragraph(header))
+                        .setBackgroundColor(com.itextpdf.kernel.colors.ColorConstants.LIGHT_GRAY)
+                        .setBold()
+                        .setFontSize(9)
+                        .setTextAlignment(com.itextpdf.layout.properties.TextAlignment.CENTER)
+                        .setPadding(5);
+                    table.addHeaderCell(headerCell);
+                }
+
+                // Add data rows
+                java.time.format.DateTimeFormatter timeFormatter =
+                    java.time.format.DateTimeFormatter.ofPattern("HH:mm");
+
+                int totalWorkingMinutes = 0;
+                int totalMorningOT = 0;
+                int totalEveningOT = 0;
+                int totalOT = 0;
+                int totalWeight = 0;
+                int totalJobs = 0;
+
+                for (EmployeeDailyWorkTimeReportDTO record : reportData) {
+                    table.addCell(new com.itextpdf.layout.element.Cell()
+                        .add(new com.itextpdf.layout.element.Paragraph(record.getDate().toString()))
+                        .setFontSize(9)
+                        .setPadding(5));
+                    table.addCell(new com.itextpdf.layout.element.Cell()
+                        .add(new com.itextpdf.layout.element.Paragraph(
+                            record.getStartTime() != null ? record.getStartTime().format(timeFormatter) : "N/A"))
+                        .setFontSize(9)
+                        .setPadding(5));
+                    table.addCell(new com.itextpdf.layout.element.Cell()
+                        .add(new com.itextpdf.layout.element.Paragraph(
+                            record.getEndTime() != null ? record.getEndTime().format(timeFormatter) : "N/A"))
+                        .setFontSize(9)
+                        .setPadding(5));
+
+                    int workingMin = record.getWorkingMinutes() != null ? record.getWorkingMinutes() : 0;
+                    int morningOT = record.getMorningOtMinutes() != null ? record.getMorningOtMinutes() : 0;
+                    int eveningOT = record.getEveningOtMinutes() != null ? record.getEveningOtMinutes() : 0;
+                    int totalOTMin = record.getTotalOtMinutes() != null ? record.getTotalOtMinutes() : 0;
+                    int weight = record.getTotalWeightEarned() != null ? record.getTotalWeightEarned() : 0;
+                    int jobs = record.getJobsCompleted() != null ? record.getJobsCompleted() : 0;
+
+                    table.addCell(new com.itextpdf.layout.element.Cell()
+                        .add(new com.itextpdf.layout.element.Paragraph(String.valueOf(workingMin)))
+                        .setFontSize(9)
+                        .setTextAlignment(com.itextpdf.layout.properties.TextAlignment.RIGHT)
+                        .setPadding(5));
+                    table.addCell(new com.itextpdf.layout.element.Cell()
+                        .add(new com.itextpdf.layout.element.Paragraph(String.valueOf(morningOT)))
+                        .setFontSize(9)
+                        .setTextAlignment(com.itextpdf.layout.properties.TextAlignment.RIGHT)
+                        .setPadding(5));
+                    table.addCell(new com.itextpdf.layout.element.Cell()
+                        .add(new com.itextpdf.layout.element.Paragraph(String.valueOf(eveningOT)))
+                        .setFontSize(9)
+                        .setTextAlignment(com.itextpdf.layout.properties.TextAlignment.RIGHT)
+                        .setPadding(5));
+                    table.addCell(new com.itextpdf.layout.element.Cell()
+                        .add(new com.itextpdf.layout.element.Paragraph(String.valueOf(totalOTMin)))
+                        .setFontSize(9)
+                        .setTextAlignment(com.itextpdf.layout.properties.TextAlignment.RIGHT)
+                        .setPadding(5));
+                    table.addCell(new com.itextpdf.layout.element.Cell()
+                        .add(new com.itextpdf.layout.element.Paragraph(String.valueOf(weight)))
+                        .setFontSize(9)
+                        .setTextAlignment(com.itextpdf.layout.properties.TextAlignment.RIGHT)
+                        .setPadding(5));
+                    table.addCell(new com.itextpdf.layout.element.Cell()
+                        .add(new com.itextpdf.layout.element.Paragraph(String.valueOf(jobs)))
+                        .setFontSize(9)
+                        .setTextAlignment(com.itextpdf.layout.properties.TextAlignment.RIGHT)
+                        .setPadding(5));
+                    table.addCell(new com.itextpdf.layout.element.Cell()
+                        .add(new com.itextpdf.layout.element.Paragraph(String.valueOf(workingMin + totalOTMin)))
+                        .setFontSize(9)
+                        .setTextAlignment(com.itextpdf.layout.properties.TextAlignment.RIGHT)
+                        .setPadding(5));
+
+                    // Accumulate totals
+                    totalWorkingMinutes += workingMin;
+                    totalMorningOT += morningOT;
+                    totalEveningOT += eveningOT;
+                    totalOT += totalOTMin;
+                    totalWeight += weight;
+                    totalJobs += jobs;
+                }
+
+                // Add totals row
+                table.addCell(new com.itextpdf.layout.element.Cell()
+                    .add(new com.itextpdf.layout.element.Paragraph("TOTALS"))
+                    .setBold()
+                    .setFontSize(9)
+                    .setBackgroundColor(com.itextpdf.kernel.colors.ColorConstants.LIGHT_GRAY)
+                    .setPadding(5));
+                table.addCell(new com.itextpdf.layout.element.Cell()
+                    .add(new com.itextpdf.layout.element.Paragraph(""))
+                    .setBackgroundColor(com.itextpdf.kernel.colors.ColorConstants.LIGHT_GRAY));
+                table.addCell(new com.itextpdf.layout.element.Cell()
+                    .add(new com.itextpdf.layout.element.Paragraph(""))
+                    .setBackgroundColor(com.itextpdf.kernel.colors.ColorConstants.LIGHT_GRAY));
+                table.addCell(new com.itextpdf.layout.element.Cell()
+                    .add(new com.itextpdf.layout.element.Paragraph(String.valueOf(totalWorkingMinutes)))
+                    .setBold()
+                    .setFontSize(9)
+                    .setTextAlignment(com.itextpdf.layout.properties.TextAlignment.RIGHT)
+                    .setBackgroundColor(com.itextpdf.kernel.colors.ColorConstants.LIGHT_GRAY)
+                    .setPadding(5));
+                table.addCell(new com.itextpdf.layout.element.Cell()
+                    .add(new com.itextpdf.layout.element.Paragraph(String.valueOf(totalMorningOT)))
+                    .setBold()
+                    .setFontSize(9)
+                    .setTextAlignment(com.itextpdf.layout.properties.TextAlignment.RIGHT)
+                    .setBackgroundColor(com.itextpdf.kernel.colors.ColorConstants.LIGHT_GRAY)
+                    .setPadding(5));
+                table.addCell(new com.itextpdf.layout.element.Cell()
+                    .add(new com.itextpdf.layout.element.Paragraph(String.valueOf(totalEveningOT)))
+                    .setBold()
+                    .setFontSize(9)
+                    .setTextAlignment(com.itextpdf.layout.properties.TextAlignment.RIGHT)
+                    .setBackgroundColor(com.itextpdf.kernel.colors.ColorConstants.LIGHT_GRAY)
+                    .setPadding(5));
+                table.addCell(new com.itextpdf.layout.element.Cell()
+                    .add(new com.itextpdf.layout.element.Paragraph(String.valueOf(totalOT)))
+                    .setBold()
+                    .setFontSize(9)
+                    .setTextAlignment(com.itextpdf.layout.properties.TextAlignment.RIGHT)
+                    .setBackgroundColor(com.itextpdf.kernel.colors.ColorConstants.LIGHT_GRAY)
+                    .setPadding(5));
+                table.addCell(new com.itextpdf.layout.element.Cell()
+                    .add(new com.itextpdf.layout.element.Paragraph(String.valueOf(totalWeight)))
+                    .setBold()
+                    .setFontSize(9)
+                    .setTextAlignment(com.itextpdf.layout.properties.TextAlignment.RIGHT)
+                    .setBackgroundColor(com.itextpdf.kernel.colors.ColorConstants.LIGHT_GRAY)
+                    .setPadding(5));
+                table.addCell(new com.itextpdf.layout.element.Cell()
+                    .add(new com.itextpdf.layout.element.Paragraph(String.valueOf(totalJobs)))
+                    .setBold()
+                    .setFontSize(9)
+                    .setTextAlignment(com.itextpdf.layout.properties.TextAlignment.RIGHT)
+                    .setBackgroundColor(com.itextpdf.kernel.colors.ColorConstants.LIGHT_GRAY)
+                    .setPadding(5));
+                table.addCell(new com.itextpdf.layout.element.Cell()
+                    .add(new com.itextpdf.layout.element.Paragraph(String.valueOf(totalWorkingMinutes + totalOT)))
+                    .setBold()
+                    .setFontSize(9)
+                    .setTextAlignment(com.itextpdf.layout.properties.TextAlignment.RIGHT)
+                    .setBackgroundColor(com.itextpdf.kernel.colors.ColorConstants.LIGHT_GRAY)
+                    .setPadding(5));
+
+                document.add(table);
+            }
+
+            // Add footer with generation timestamp
+            com.itextpdf.layout.element.Paragraph footer = new com.itextpdf.layout.element.Paragraph(
+                "Generated on: " + java.time.LocalDateTime.now().format(
+                    java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")))
+                .setFontSize(8)
+                .setTextAlignment(com.itextpdf.layout.properties.TextAlignment.RIGHT)
+                .setMarginTop(20);
+            document.add(footer);
+
+            document.close();
+            return baos.toByteArray();
+
+        } catch (Exception e) {
+            throw new RuntimeException("Error generating PDF report", e);
+        }
+    }
 }

@@ -303,4 +303,56 @@ public class AdminReportController {
             reportService.getEmployeeDailyWorkTimeReport(employeeId, startDate, endDate);
         return ResponseEntity.ok(report);
     }
+
+    /**
+     * Export Daily Time Tracking Report as PDF
+     * Returns a PDF file containing employee time tracking data with location information
+     *
+     * @param startDate Start date (inclusive)
+     * @param endDate End date (inclusive)
+     * @param employeeId Optional employee filter (null = all employees)
+     * @return PDF file as byte array
+     */
+    @GetMapping("/time-tracking/export")
+    public ResponseEntity<byte[]> exportDailyTimeTrackingReportPDF(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @RequestParam(required = false) Long employeeId) {
+
+        byte[] pdfBytes = reportService.exportDailyTimeTrackingReportPDF(employeeId, startDate, endDate);
+
+        String filename = String.format("daily-time-tracking-%s-to-%s.pdf",
+                startDate.toString(), endDate.toString());
+
+        return ResponseEntity.ok()
+                .header("Content-Type", "application/pdf")
+                .header("Content-Disposition", "attachment; filename=\"" + filename + "\"")
+                .body(pdfBytes);
+    }
+
+    /**
+     * Export Employee Daily Work Time (Performance & OT) Report as PDF
+     * Returns a PDF file containing employee performance data with OT breakdown
+     *
+     * @param employeeId Employee ID (required)
+     * @param startDate Start date (inclusive)
+     * @param endDate End date (inclusive)
+     * @return PDF file as byte array
+     */
+    @GetMapping("/overtime/export")
+    public ResponseEntity<byte[]> exportEmployeeDailyWorkTimeReportPDF(
+            @RequestParam Long employeeId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+
+        byte[] pdfBytes = reportService.exportEmployeeDailyWorkTimeReportPDF(employeeId, startDate, endDate);
+
+        String filename = String.format("performance-overtime-employee-%d-%s-to-%s.pdf",
+                employeeId, startDate.toString(), endDate.toString());
+
+        return ResponseEntity.ok()
+                .header("Content-Type", "application/pdf")
+                .header("Content-Disposition", "attachment; filename=\"" + filename + "\"")
+                .body(pdfBytes);
+    }
 }
